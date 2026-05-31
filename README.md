@@ -25,6 +25,8 @@ Single-compartment oral pharmacokinetic simulator with real-time interactive vis
 - Light / dark theme toggle
 - All parameters persisted in browser localStorage across sessions
 
+![PK Simulator screenshot](semiExp.png)
+
 ## Model
 
 1-compartment model, first-order oral absorption:
