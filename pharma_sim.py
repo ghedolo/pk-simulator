@@ -219,7 +219,6 @@ app.layout = html.Div(
                                 marks={v: {"label": str(v)} for v in MARK_VALS},
                                 tooltip={"always_visible": False},
                                 updatemode="drag",
-                                persistence=True, persistence_type="local",
                             ),
                         ]),
                         html.Div(
@@ -328,7 +327,6 @@ app.layout = html.Div(
 )
 
 
-# Slider → input (one-way, updatemode=drag so value fires continuously)
 @app.callback(
     Output("halflife-input", "value"),
     Input("halflife-slider", "value"),
@@ -336,6 +334,13 @@ app.layout = html.Div(
 )
 def slider_to_input(val):
     return val or DEFAULT_HALF_LIFE
+
+
+app.clientside_callback(
+    "function(v) { var f = parseFloat(v); return (f >= 0.5 && f <= 48) ? f : window.dash_clientside.no_update; }",
+    Output("halflife-slider", "value"),
+    Input("halflife-input", "value"),
+)
 
 
 @app.callback(
