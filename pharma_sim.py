@@ -32,6 +32,14 @@ DARK_THEME = {
 MARK_VALS = [1, 6, 12, 24, 48]
 
 
+def parse_dose(v):
+    try:
+        f = float(v)
+        return f if f >= 0 else None
+    except (TypeError, ValueError):
+        return None
+
+
 def compute_concentration(dose_times_abs, ka, ke, t_end):
     t = np.linspace(0, t_end, TIME_POINTS)
     conc = np.zeros_like(t)
@@ -59,7 +67,7 @@ def build_figure(dose_times_abs, half_life, ka, theme, t_range=72, xrange_overri
         t, conc = compute_concentration(dose_times_abs, ka, ke, t_end)
 
     t_cutoff = max(dose_times_abs) if dose_times_abs else 0
-    y_max = max(2.5, float(np.max(conc)) * 1.1) if len(conc) > 0 else 2.5
+    y_max = max(2.5, float(np.max(conc)) * 1.2) if len(conc) > 0 else 2.5
     x_display_end = xrange_override if xrange_override is not None else t_end
 
     fig = go.Figure()
@@ -129,8 +137,8 @@ def build_figure(dose_times_abs, half_life, ka, theme, t_range=72, xrange_overri
         arrowcolor=colors["text"], text=""
     )
     fig.add_annotation(
-        xref="paper", yref="paper", x=0, y=1.01,
-        ax=0, ay=12, axref="pixel", ayref="pixel",
+        xref="paper", yref="paper", x=0, y=1.06,
+        ax=0, ay=16, axref="pixel", ayref="pixel",
         showarrow=True, arrowhead=2, arrowsize=1, arrowwidth=2,
         arrowcolor=colors["text"], text=""
     )
@@ -141,7 +149,7 @@ def build_figure(dose_times_abs, half_life, ka, theme, t_range=72, xrange_overri
         font=dict(color=colors["text"]),
         showlegend=False,
         xaxis=dict(
-            title="Time (h)",
+            title=dict(text="Time (h)", standoff=5),
             gridcolor=colors["grid"],
             range=[0, x_display_end],
             color=colors["text"],
@@ -154,7 +162,7 @@ def build_figure(dose_times_abs, half_life, ka, theme, t_range=72, xrange_overri
             color=colors["text"],
             showline=True, linecolor=colors["text"],
         ),
-        margin=dict(l=60, r=80, t=30, b=50),
+        margin=dict(l=60, r=60, t=38, b=30),
         height=480,
     )
     return fig
@@ -196,7 +204,7 @@ app.layout = html.Div(
                 html.H2("Pharmacokinetic Simulator", style={"margin": 0}),
                 html.Div(style={"display": "flex", "gap": "8px",
                                 "position": "absolute", "right": "20px"}, children=[
-                    html.Button("Clean", id="clean-btn",
+                    html.Button("Show until clean", id="clean-btn",
                                 style={"padding": "6px 14px", "cursor": "pointer",
                                        "borderRadius": "6px"}),
                     html.Button("Reset", id="reset-btn",
@@ -213,11 +221,21 @@ app.layout = html.Div(
             style={"display": "flex", "gap": "30px", "padding": "0 20px"},
             children=[
                 html.Div(
-                    style={"minWidth": "160px", "maxWidth": "190px"},
+                    style={"minWidth": "160px", "maxWidth": "190px", "overflow": "visible"},
                     children=[
+                        html.Div(children=[
+                            dcc.Slider(
+                                id="halflife-slider",
+                                min=0.5, max=48, step=0.5, value=DEFAULT_HALF_LIFE,
+                                marks={v: {"label": str(v)} for v in MARK_VALS},
+                                tooltip={"always_visible": False},
+                                updatemode="drag",
+                                persistence=True, persistence_type="local",
+                            ),
+                        ]),
                         html.Div(
                             style={"display": "flex", "justifyContent": "space-between",
-                                   "alignItems": "center"},
+                                   "alignItems": "center", "marginTop": "10px", "marginBottom": "4px"},
                             children=[
                                 html.Label("Half-Life (h)", style={"fontSize": "12px"}),
                                 dcc.Input(
@@ -228,60 +246,74 @@ app.layout = html.Div(
                                 ),
                             ],
                         ),
-                        html.Div(style={"marginTop": "10px"}, children=[
-                            dcc.Slider(
-                                id="halflife-slider",
-                                min=0.5, max=48, step=0.5, value=DEFAULT_HALF_LIFE,
-                                marks={v: {"label": str(v)} for v in MARK_VALS},
-                                tooltip={"always_visible": False},
-                                updatemode="drag",
-                                persistence=True, persistence_type="local",
-                            ),
-                        ]),
 
-                        html.Label("Δt½ (h)", style={"fontSize": "12px", "display": "block",
-                                                    "marginTop": "14px", "marginBottom": "4px"}),
-                        dcc.Input(
-                            id="delta-hl-input", type="number", value=None,
-                            min=0, step=0.5, placeholder="0",
-                            style={**INPUT_STYLE_BASE, "marginBottom": "10px"},
+                        html.Div(
+                            style={"display": "flex", "justifyContent": "space-between",
+                                   "alignItems": "center", "marginTop": "14px",
+                                   "marginBottom": "10px"},
+                            children=[
+                                html.Label("Δt½ (h)", style={"fontSize": "12px"}),
+                                dcc.Input(
+                                    id="delta-hl-input", type="text", inputMode="decimal",
+                                    placeholder="0",
+                                    style=HL_INPUT_STYLE,
+                                ),
+                            ],
                         ),
 
-                        html.Label("Ka (1/h)", style={"fontSize": "12px", "display": "block",
-                                                       "marginTop": "10px", "marginBottom": "4px"}),
-                        dcc.Input(
-                            id="ka-input", type="number", value=DEFAULT_KA,
-                            min=0.1, max=10, step=0.1,
-                            persistence=True, persistence_type="local",
-                            style={**INPUT_STYLE_BASE, "marginBottom": "12px"},
+                        html.Div(
+                            style={"display": "flex", "justifyContent": "space-between",
+                                   "alignItems": "center", "marginBottom": "12px"},
+                            children=[
+                                html.Label("Ka (1/h)", style={"fontSize": "12px"}),
+                                dcc.Input(
+                                    id="ka-input", type="text", inputMode="decimal",
+                                    value=str(DEFAULT_KA),
+                                    persistence=True, persistence_type="local",
+                                    style=HL_INPUT_STYLE,
+                                ),
+                            ],
                         ),
 
-                        html.Label("Doses (h from previous)",
-                                   style={"fontSize": "12px", "display": "block",
-                                          "marginTop": "12px", "marginBottom": "4px"}),
                         html.Div(
                             id="dose-slots",
-                            style={"display": "flex", "flexDirection": "column", "gap": "3px"},
+                            style={"display": "flex", "flexDirection": "column", "gap": "4px",
+                                   "marginTop": "14px"},
                             children=[
                                 html.Div(
-                                    style={"display": "flex", "gap": "2px", "alignItems": "center"},
+                                    style={"display": "flex", "justifyContent": "space-between",
+                                           "alignItems": "center"},
                                     children=[
-                                        html.Button("-", id={"type": "dose-minus", "index": i},
-                                                    style={"width": "18px", "height": "22px",
-                                                           "padding": "0", "cursor": "pointer",
-                                                           "borderRadius": "3px", "border": "1px solid #aaa",
-                                                           "fontSize": "14px", "flexShrink": "0"}),
-                                        dcc.Input(
-                                            id=f"dose-{i}", type="number", placeholder=f"D{i+2}",
-                                            min=0, step="any",
-                                            persistence=True, persistence_type="local",
-                                            style={**INPUT_STYLE_BASE, "width": "auto", "flex": "1"},
+                                        html.Label(f"Dose {i+2} (h)",
+                                                   style={"fontSize": "12px"}),
+                                        html.Div(
+                                            style={"position": "relative", "width": "62px",
+                                                   "flexShrink": "0"},
+                                            children=[
+                                                html.Button("-", id={"type": "dose-minus", "index": i},
+                                                            style={"position": "absolute",
+                                                                   "right": "calc(100% + 2px)", "top": "0",
+                                                                   "width": "18px", "height": "22px",
+                                                                   "padding": "0", "cursor": "pointer",
+                                                                   "borderRadius": "3px",
+                                                                   "border": "1px solid #aaa",
+                                                                   "fontSize": "14px"}),
+                                                dcc.Input(
+                                                    id=f"dose-{i}", type="text", inputMode="decimal",
+                                                    placeholder="—",
+                                                    persistence=True, persistence_type="local",
+                                                    style={**HL_INPUT_STYLE, "width": "100%"},
+                                                ),
+                                                html.Button("+", id={"type": "dose-plus", "index": i},
+                                                            style={"position": "absolute",
+                                                                   "left": "calc(100% + 2px)", "top": "0",
+                                                                   "width": "18px", "height": "22px",
+                                                                   "padding": "0", "cursor": "pointer",
+                                                                   "borderRadius": "3px",
+                                                                   "border": "1px solid #aaa",
+                                                                   "fontSize": "14px"}),
+                                            ],
                                         ),
-                                        html.Button("+", id={"type": "dose-plus", "index": i},
-                                                    style={"width": "18px", "height": "22px",
-                                                           "padding": "0", "cursor": "pointer",
-                                                           "borderRadius": "3px", "border": "1px solid #aaa",
-                                                           "fontSize": "14px", "flexShrink": "0"}),
                                     ],
                                 )
                                 for i in range(7)
@@ -291,9 +323,10 @@ app.layout = html.Div(
                 ),
 
                 html.Div(
-                    style={"flex": "1"},
+                    style={"flex": "1", "minWidth": "0"},
                     children=[dcc.Graph(
                         id="pk-graph",
+                        responsive=True,
                         config={"toImageButtonOptions": {
                             "format": "png", "filename": "pk_simulation", "scale": 2,
                         }},
@@ -310,6 +343,7 @@ app.layout = html.Div(
 @app.callback(
     Output("halflife-input", "value"),
     Input("halflife-slider", "value"),
+    prevent_initial_call=True,
 )
 def slider_to_input(val):
     return val or DEFAULT_HALF_LIFE
@@ -350,12 +384,45 @@ app.clientside_callback(
             ].join(' ');
             document.head.appendChild(s);
         }
+        var rangeColor = theme === 'dark' ? '#4cc9f0' : '#0d6efd';
+        var railColor  = theme === 'dark' ? '#4a5568' : '#dee2e6';
+        function applySliderColors() {
+            document.querySelectorAll('.dash-slider-track').forEach(function(el) {
+                el.style.setProperty('background', railColor, 'important');
+            });
+            document.querySelectorAll('.dash-slider-range').forEach(function(el) {
+                el.style.setProperty('background', rangeColor, 'important');
+            });
+            document.querySelectorAll('.dash-slider-thumb').forEach(function(el) {
+                el.style.setProperty('background', rangeColor, 'important');
+                el.style.setProperty('border-color', rangeColor, 'important');
+            });
+        }
+        applySliderColors();
+        setTimeout(applySliderColors, 100);
         return '';
     }
     """,
     Output("body-theme-setter", "children"),
     Input("theme-store", "data"),
 )
+
+
+@app.callback(
+    Output("clean-btn", "style"),
+    Input("xrange-store", "data"),
+    Input("theme-store", "data"),
+)
+def update_clean_btn_style(xrange, theme):
+    base = {"padding": "6px 14px", "cursor": "pointer", "borderRadius": "6px"}
+    if xrange is not None:
+        return {**base, "backgroundColor": "#0d6efd", "color": "#ffffff",
+                "border": "1px solid #0a58ca", "fontWeight": "600"}
+    if theme == "dark":
+        return {**base, "backgroundColor": "#2d3561", "color": "#e0e0e0",
+                "border": "1px solid #4a5568"}
+    return {**base, "backgroundColor": "#e9ecef", "color": "#212529",
+            "border": "1px solid #adb5bd"}
 
 
 @app.callback(
@@ -404,8 +471,7 @@ def update_input_styles(theme):
         "backgroundColor": colors["paper"],
         "color": colors["text"],
     }
-    delta_style = dict(style, marginBottom="10px")
-    return [hl_style, delta_style, dict(style, marginBottom="12px")] + [style] * 7
+    return [hl_style, hl_style, hl_style] + [hl_style] * 7
 
 
 @app.callback(
@@ -429,13 +495,14 @@ def update_xrange(n_clicks, half_life, ka, *args):
         return None
 
     half_life = (half_life or DEFAULT_HALF_LIFE)
-    ka = (ka or DEFAULT_KA)
+    ka = parse_dose(ka) or DEFAULT_KA
     ke = np.log(2) / half_life
     dose_times_abs = [0.0]
     last_t = 0.0
     for dv in dose_values:
-        if dv is not None and dv >= 0:
-            last_t += dv
+        parsed = parse_dose(dv)
+        if parsed is not None:
+            last_t += parsed
             dose_times_abs.append(last_t)
     t_search = max(dose_times_abs) + 10 * half_life
     t, conc = compute_concentration(dose_times_abs, ka, ke, t_search)
@@ -458,17 +525,18 @@ def update_xrange(n_clicks, half_life, ka, *args):
 def update_graph(half_life, delta_hl, ka, theme, xrange_override, *dose_values):
     if not half_life or half_life <= 0:
         half_life = DEFAULT_HALF_LIFE
-    if not ka or ka <= 0:
-        ka = DEFAULT_KA
+    ka = parse_dose(ka) or DEFAULT_KA
 
     dose_times_abs = [0.0]
     last_t = 0.0
     for dv in dose_values:
-        if dv is not None and dv >= 0:
-            last_t += dv
+        parsed = parse_dose(dv)
+        if parsed is not None:
+            last_t += parsed
             dose_times_abs.append(last_t)
 
-    delta = float(delta_hl) if delta_hl and delta_hl > 0 else 0
+    delta_parsed = parse_dose(delta_hl)
+    delta = delta_parsed if delta_parsed and delta_parsed > 0 else 0
     return build_figure(dose_times_abs, half_life, ka, theme,
                         xrange_override=xrange_override, delta_hl=delta)
 
@@ -480,7 +548,7 @@ def update_graph(half_life, delta_hl, ka, theme, xrange_override, *dose_values):
     prevent_initial_call=True,
 )
 def reset_params(_):
-    return [DEFAULT_HALF_LIFE, DEFAULT_HALF_LIFE, DEFAULT_KA]
+    return [DEFAULT_HALF_LIFE, DEFAULT_HALF_LIFE, str(DEFAULT_KA)]
 
 
 @app.callback(
@@ -498,8 +566,9 @@ def update_doses(reset_clicks, minus_clicks, plus_clicks, *current_values):
     if isinstance(triggered_id, dict):
         idx = triggered_id["index"]
         values = list(current_values)
-        cur = values[idx] if values[idx] is not None else 0
-        values[idx] = cur + 1 if triggered_id["type"] == "dose-plus" else max(0, cur - 1)
+        cur = parse_dose(values[idx]) or 0
+        new_val = cur + 1 if triggered_id["type"] == "dose-plus" else max(0, cur - 1)
+        values[idx] = str(int(new_val)) if new_val == int(new_val) else str(new_val)
         return values
     return [no_update] * 7
 
