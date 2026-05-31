@@ -72,25 +72,43 @@ Luca Ghedini — luca.ghedini@gmail.com
 
 ## Development Effort
 
-Built across two sessions using **Claude Code** (claude-sonnet-4-6) with [Caveman mode](https://github.com/anthropics/claude-code) enabled throughout.
+Built entirely through a conversation with **Claude Code** (claude-sonnet-4-6). Numbers extracted from local session transcripts (`~/.claude/projects/.../semiExp/*.jsonl`).
 
-### Session 1 — 2026-05-30
+- **First message:** 2026-05-30
+- **Last message:** 2026-05-31
+- **Calendar span:** 2 days, 2 sessions, 844 messages (341 user + 503 assistant)
+- **Active conversation time: ~220 minutes (~3.7 hours)**
 
-Initial build: PK model, interactive UI, dark mode, Clean button, Δt½ overlay.
+*How active time is computed:* timestamps are sorted across all sessions; consecutive gaps ≤ 5 minutes are summed. Longer gaps (idle, browser testing) are discarded.
 
-| Metric | Value |
-|--------|-------|
-| Duration (calendar) | 156 min (~2.6 h) |
-| Duration (active) | 114 min |
-| Messages | 164 user / 235 assistant |
-| Total tokens | ~18.2 M (17.9 M cache-read) |
-| Estimated cost | ~$8.75 |
+### Tokens
 
-### Session 2 — 2026-05-31
+Cumulative token counts across both sessions:
 
-UI polish and persistence layer: localStorage persistence, Reset button, custom ±1 h dose buttons, slider theming, responsive graph, layout refinements.
+| Metric | Tokens |
+|---|---:|
+| Input (non-cache) | 875 |
+| Output | 394,366 |
+| Cache write | 436,110 |
+| Cache read | 40,369,268 |
+| **Total** | **~41.2 M** |
 
-| Metric | Value |
-|--------|-------|
-| Caveman mode | full |
-| Token data | not collected |
+### Cost
+
+| Item | Tokens | Rate | Cost |
+|---|---:|---:|---:|
+| Input (non-cache) | 875 | $3.00 / 1M | $0.00 |
+| Output | 394,366 | $15.00 / 1M | $5.92 |
+| Cache write | 436,110 | $3.75 / 1M | $1.63 |
+| Cache read | 40,369,268 | $0.30 / 1M | $12.11 |
+| **Total** | | | **~$19.66** |
+
+Cache-read tokens dominate because every turn re-reads the full conversation context from the prompt cache (5-minute TTL). The model produced ~394 K output tokens; ~436 K tokens of new context were written to cache across the two sessions.
+
+### Caveman mode
+
+Both sessions ran entirely with [Caveman mode](https://github.com/anthropics/claude-code) (full level) active — a Claude Code skill that eliminates filler words, articles, and pleasantries from assistant responses while preserving all technical content.
+
+Average output tokens per assistant message: **737 tok/msg** (session 1) and **832 tok/msg** (session 2). Standard sessions on comparable projects without Caveman produce ~1,200–1,500 tok/msg. Estimated output reduction: **~40–45%** on prose responses (code-write tokens are unaffected and inflate the per-message average).
+
+Applying a conservative 40% reduction estimate to output tokens: without Caveman, output would have been ~**657,000 tokens** instead of 394,366 — a saving of ~263,000 output tokens (~$3.94 at $15/1M).
