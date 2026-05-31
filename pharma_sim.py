@@ -168,17 +168,6 @@ def build_figure(dose_times_abs, half_life, ka, theme, t_range=72, xrange_overri
     return fig
 
 
-INPUT_STYLE_BASE = {
-    "width": "100%",
-    "padding": "0px 4px",
-    "fontSize": "12px",
-    "lineHeight": "1.4",
-    "height": "22px",
-    "borderRadius": "3px",
-    "border": "1px solid #aaa",
-    "boxSizing": "border-box",
-}
-
 HL_INPUT_STYLE = {
     "width": "62px",
     "padding": "0px 3px",
@@ -459,12 +448,6 @@ def update_container_style(theme):
 )
 def update_input_styles(theme):
     colors = DARK_THEME if theme == "dark" else LIGHT_THEME
-    style = {
-        **INPUT_STYLE_BASE,
-        "border": f"1px solid {colors['grid']}",
-        "backgroundColor": colors["paper"],
-        "color": colors["text"],
-    }
     hl_style = {
         **HL_INPUT_STYLE,
         "border": f"1px solid {colors['grid']}",

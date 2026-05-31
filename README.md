@@ -64,7 +64,7 @@ python pharma_sim.py
 
 ## License
 
-MIT License. See [LICENSE](LICENSE).
+GPL-3.0. See [LICENSE](LICENSE).
 
 ## Author
 
