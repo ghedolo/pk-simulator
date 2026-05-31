@@ -1,0 +1,43 @@
+* { box-sizing: border-box; }
+html, body {
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
+
+/* Hide slider tooltip popup completely */
+.rc-slider-tooltip,
+[class*="rc-slider-tooltip"],
+.dash-slider-tooltip,
+[class*="dash-slider-tooltip"] {
+    display: none !important;
+}
+
+/* Slider dark mode */
+body[data-theme="dark"] .rc-slider-mark-text,
+body[data-theme="dark"] [class*="rc-slider-mark-text"] {
+    color: #e0e0e0 !important;
+}
+body[data-theme="dark"] .rc-slider-rail,
+body[data-theme="dark"] [class*="rc-slider-rail"] {
+    background-color: #4a5568 !important;
+}
+body[data-theme="dark"] .rc-slider-track,
+body[data-theme="dark"] [class*="rc-slider-track"] {
+    background-color: #4cc9f0 !important;
+}
+body[data-theme="dark"] .rc-slider-handle,
+body[data-theme="dark"] [class*="rc-slider-handle"] {
+    border-color: #4cc9f0 !important;
+    background-color: #4cc9f0 !important;
+}
+
+/* Hide number input spinners */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+input[type=number] {
+    -moz-appearance: textfield;
+}
