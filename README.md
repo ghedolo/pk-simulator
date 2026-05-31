@@ -4,6 +4,7 @@ Single-compartment oral pharmacokinetic simulator with real-time interactive vis
 
 ## Features
 
+### Panel 1 — arbitrary dosing
 - Up to 8 doses (first at t=0, then 7 slots with interval in hours from the previous dose)
 - Half-life slider (0.5–48 h) with direct numeric input
 - Absorption constant Ka (0.1–10 /h)
@@ -11,10 +12,18 @@ Single-compartment oral pharmacokinetic simulator with real-time interactive vis
 - Solid line for observed period, dashed for projection (3×t½ beyond last dose)
 - Reference lines: minimum efficacy (1.0, green), steady-state threshold (2.0, red), cleanup threshold (0.1, grey)
 - Day markers on the x-axis (1d, 2d, 3d…)
-- **Clean** button: toggle x-axis cutoff at the point concentration drops to 0.1
+
+### Panel 2 — regular dosing regime
+- **N Doses** slider (1–10): evenly-spaced doses
+- **Interval** slider (0–2×t½, step 0.5 h) with direct numeric input: hours between doses; range updates dynamically with half-life; 0 = all doses at t=0
+- Same visual logic as panel 1 (curves, colors, reference lines, day markers)
+
+### Shared controls
+- **Max** button: toggle cubic spline through all local concentration peaks on both graphs
+- **Clean** button: toggle x-axis cutoff at the point concentration drops to 0.1; stays active and recomputes when parameters change
 - **Reset** button: restore all parameters to defaults
 - Light / dark theme toggle
-- Parameters persisted in browser localStorage across sessions
+- All parameters persisted in browser localStorage across sessions
 
 ## Model
 
@@ -56,9 +65,11 @@ python pharma_sim.py
 2. Set **Ka** (absorption rate constant)
 3. Enter dose intervals in the dose slots (hours from the previous dose); use the **+**/**−** buttons for ±1 h steps or type any value including 0.5 h increments
 4. Optionally set **Δt½** to overlay a second curve with a longer half-life
-5. Use **Clean** to zoom the x-axis to the elimination point
-6. Use **Reset** to restore all parameters to defaults
-7. Use the camera icon on the chart toolbar to export a PNG
+5. Use the **N Doses** and **Interval** sliders (panel 2) to simulate a regular dosing regimen
+6. Use **Max** to overlay the peak concentration envelope on both graphs
+7. Use **Clean** to zoom the x-axis to the elimination point; parameters can be changed while active
+8. Use **Reset** to restore all parameters to defaults
+9. Use the camera icon on the chart toolbar to export a PNG
 
 ---
 
@@ -76,14 +87,15 @@ Built entirely through a conversation with **Claude Code** (claude-sonnet-4-6). 
 
 - **First message:** 2026-05-30
 - **Last message:** 2026-05-31
-- **Calendar span:** 2 days, 2 sessions, 844 messages (341 user + 503 assistant)
-- **Active conversation time: ~220 minutes (~3.7 hours)**
+- **Calendar span:** 2 days, 3 sessions
+- Sessions 1–2: 844 messages (341 user + 503 assistant), ~220 min active
+- Session 3: metrics pending extraction from transcript
 
 *How active time is computed:* timestamps are sorted across all sessions; consecutive gaps ≤ 5 minutes are summed. Longer gaps (idle, browser testing) are discarded.
 
 ### Tokens
 
-Cumulative token counts across both sessions:
+Cumulative token counts across sessions 1–2 (session 3 pending):
 
 | Metric | Tokens |
 |---|---:|
@@ -91,7 +103,7 @@ Cumulative token counts across both sessions:
 | Output | 394,366 |
 | Cache write | 436,110 |
 | Cache read | 40,369,268 |
-| **Total** | **~41.2 M** |
+| **Total (s1–s2)** | **~41.2 M** |
 
 ### Cost
 
@@ -101,13 +113,13 @@ Cumulative token counts across both sessions:
 | Output | 394,366 | $15.00 / 1M | $5.92 |
 | Cache write | 436,110 | $3.75 / 1M | $1.63 |
 | Cache read | 40,369,268 | $0.30 / 1M | $12.11 |
-| **Total** | | | **~$19.66** |
+| **Total (s1–s2)** | | | **~$19.66** |
 
 Cache-read tokens dominate because every turn re-reads the full conversation context from the prompt cache (5-minute TTL). The model produced ~394 K output tokens; ~436 K tokens of new context were written to cache across the two sessions.
 
 ### Caveman mode
 
-Both sessions ran entirely with [Caveman mode](https://github.com/anthropics/claude-code) (full level) active — a Claude Code skill that eliminates filler words, articles, and pleasantries from assistant responses while preserving all technical content.
+All sessions ran entirely with [Caveman mode](https://github.com/anthropics/claude-code) (full level) active — a Claude Code skill that eliminates filler words, articles, and pleasantries from assistant responses while preserving all technical content.
 
 Average output tokens per assistant message: **737 tok/msg** (session 1) and **832 tok/msg** (session 2). Standard sessions on comparable projects without Caveman produce ~1,200–1,500 tok/msg. Estimated output reduction: **~40–45%** on prose responses (code-write tokens are unaffected and inflate the per-message average).
 

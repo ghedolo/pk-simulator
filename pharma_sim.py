@@ -7,6 +7,7 @@ app = dash.Dash(__name__)
 
 DEFAULT_HALF_LIFE = 6.0
 DEFAULT_KA = 1.2
+DEFAULT_REG_DOSES = 3
 TIME_POINTS = 2000
 
 LIGHT_THEME = {
@@ -52,7 +53,7 @@ def compute_concentration(dose_times_abs, ka, ke, t_end):
     return t, conc
 
 
-def build_figure(dose_times_abs, half_life, ka, theme, t_range=72, xrange_override=None, delta_hl=0):
+def build_figure(dose_times_abs, half_life, ka, theme, t_range=72, xrange_override=None, delta_hl=0, show_max=False):
     colors = DARK_THEME if theme == "dark" else LIGHT_THEME
     ke = np.log(2) / half_life
 
@@ -86,7 +87,7 @@ def build_figure(dose_times_abs, half_life, ka, theme, t_range=72, xrange_overri
             line=dict(color=colors["dash_line"], width=2, dash="dash"),
             showlegend=False,
         ))
-        for td in dose_times_abs:
+        for td in sorted(set(dose_times_abs)):
             fig.add_vline(x=td, line=dict(color=colors["text"], width=1, dash="dot"), opacity=0.4)
     else:
         fig.add_trace(go.Scatter(
@@ -95,7 +96,6 @@ def build_figure(dose_times_abs, half_life, ka, theme, t_range=72, xrange_overri
             showlegend=False,
         ))
 
-    # Second curve with modified half-life
     if delta_hl and delta_hl > 0 and len(dose_times_abs) > 0:
         ke2 = np.log(2) / (half_life + delta_hl)
         _, conc2 = compute_concentration(dose_times_abs, ka, ke2, t_end)
@@ -113,11 +113,21 @@ def build_figure(dose_times_abs, half_life, ka, theme, t_range=72, xrange_overri
         ))
         y_max = max(y_max, float(np.max(conc2)) * 1.1)
 
+    if show_max and len(dose_times_abs) > 1 and len(conc) > 2:
+        diff = np.diff(conc)
+        peak_idx_arr = np.where((diff[:-1] > 0) & (diff[1:] <= 0))[0] + 1
+        if len(peak_idx_arr) >= 2:
+            fig.add_trace(go.Scatter(
+                x=t[peak_idx_arr], y=conc[peak_idx_arr],
+                mode="lines",
+                line=dict(color="#a855f7", width=1.5, shape="spline", smoothing=1.3, dash="dot"),
+                showlegend=False,
+            ))
+
     fig.add_hline(y=0.1, line=dict(color="#888888", width=1, dash="dot"))
     fig.add_hline(y=1.0, line=dict(color="#28a745", width=1.5))
     fig.add_hline(y=2.0, line=dict(color="#dc3545", width=1.5))
 
-    # Day markers
     day = 24
     while day <= x_display_end:
         fig.add_vline(x=day, line=dict(color="#87ceeb", width=0.8), opacity=0.6)
@@ -163,7 +173,7 @@ def build_figure(dose_times_abs, half_life, ka, theme, t_range=72, xrange_overri
             showline=True, linecolor=colors["text"],
         ),
         margin=dict(l=60, r=60, t=38, b=30),
-        height=480,
+        height=360,
     )
     return fig
 
@@ -184,6 +194,8 @@ app.layout = html.Div(
     children=[
         dcc.Store(id="theme-store", data="light"),
         dcc.Store(id="xrange-store", data=None),
+        dcc.Store(id="xrange-store-reg", data=None),
+        dcc.Store(id="show-max-store", data=False),
         html.Div(id="body-theme-setter", style={"display": "none"}),
 
         html.Div(
@@ -193,6 +205,9 @@ app.layout = html.Div(
                 html.H2("Pharmacokinetic Simulator", style={"margin": 0}),
                 html.Div(style={"display": "flex", "gap": "8px",
                                 "position": "absolute", "right": "20px"}, children=[
+                    html.Button("Max", id="max-btn",
+                                style={"padding": "6px 14px", "cursor": "pointer",
+                                       "borderRadius": "6px"}),
                     html.Button("Show until clean", id="clean-btn",
                                 style={"padding": "6px 14px", "cursor": "pointer",
                                        "borderRadius": "6px"}),
@@ -206,6 +221,7 @@ app.layout = html.Div(
             ],
         ),
 
+        # Panel 1: arbitrary dosing
         html.Div(
             style={"display": "flex", "gap": "30px", "padding": "0 20px"},
             children=[
@@ -314,9 +330,66 @@ app.layout = html.Div(
                     style={"flex": "1", "minWidth": "0"},
                     children=[dcc.Graph(
                         id="pk-graph",
-                        responsive=True,
+                        style={"height": "360px"},
                         config={"toImageButtonOptions": {
                             "format": "png", "filename": "pk_simulation", "scale": 2,
+                        }},
+                    )],
+                ),
+            ],
+        ),
+
+        # Panel 2: regular dosing regime
+        html.Div(
+            style={"display": "flex", "gap": "30px", "padding": "0 20px", "marginTop": "20px"},
+            children=[
+                html.Div(
+                    style={"minWidth": "160px", "maxWidth": "190px", "overflow": "visible"},
+                    children=[
+                        html.Label("N Doses", style={"fontSize": "12px", "display": "block",
+                                                      "marginBottom": "4px"}),
+                        dcc.Slider(
+                            id="reg-doses-slider",
+                            min=1, max=10, step=1, value=DEFAULT_REG_DOSES,
+                            marks={v: {"label": str(v)} for v in [1, 2, 3, 5, 7, 10]},
+                            tooltip={"always_visible": False},
+                            persistence=True, persistence_type="local",
+                        ),
+
+                        html.Div(
+                            style={"display": "flex", "justifyContent": "space-between",
+                                   "alignItems": "center", "marginTop": "20px", "marginBottom": "4px"},
+                            children=[
+                                html.Label("Interval (h)", style={"fontSize": "12px"}),
+                                dcc.Input(
+                                    id="reg-interval-input", type="text", inputMode="decimal",
+                                    value=str(DEFAULT_HALF_LIFE),
+                                    persistence=True, persistence_type="local",
+                                    style=HL_INPUT_STYLE,
+                                ),
+                            ],
+                        ),
+                        dcc.Slider(
+                            id="reg-interval-slider",
+                            min=0, max=2 * DEFAULT_HALF_LIFE, step=0.5, value=DEFAULT_HALF_LIFE,
+                            marks={
+                                0: {"label": "0"},
+                                DEFAULT_HALF_LIFE: {"label": f"{DEFAULT_HALF_LIFE:.0f}h"},
+                                2 * DEFAULT_HALF_LIFE: {"label": f"{2 * DEFAULT_HALF_LIFE:.0f}h"},
+                            },
+                            tooltip={"always_visible": False},
+                            updatemode="drag",
+                        ),
+                    ],
+                ),
+
+                html.Div(
+                    style={"flex": "1", "minWidth": "0"},
+                    children=[dcc.Graph(
+                        id="pk-graph-reg",
+                        style={"height": "360px"},
+                        config={"toImageButtonOptions": {
+                            "format": "png", "filename": "pk_simulation_regular", "scale": 2,
                         }},
                     )],
                 ),
@@ -340,6 +413,24 @@ app.clientside_callback(
     "function(v) { var f = parseFloat(v); return (f >= 0.5 && f <= 48) ? f : window.dash_clientside.no_update; }",
     Output("halflife-slider", "value"),
     Input("halflife-input", "value"),
+)
+
+
+@app.callback(
+    Output("reg-interval-input", "value"),
+    Input("reg-interval-slider", "value"),
+    prevent_initial_call=True,
+)
+def reg_interval_slider_to_input(val):
+    if val is None:
+        return str(DEFAULT_HALF_LIFE)
+    return str(int(val)) if val == int(val) else str(val)
+
+
+app.clientside_callback(
+    "function(v) { var f = parseFloat(v); return (f >= 0) ? f : window.dash_clientside.no_update; }",
+    Output("reg-interval-slider", "value"),
+    Input("reg-interval-input", "value"),
 )
 
 
@@ -403,6 +494,33 @@ app.clientside_callback(
 
 
 @app.callback(
+    Output("show-max-store", "data"),
+    Input("max-btn", "n_clicks"),
+    State("show-max-store", "data"),
+    prevent_initial_call=True,
+)
+def toggle_max(_, current):
+    return not current
+
+
+@app.callback(
+    Output("max-btn", "style"),
+    Input("show-max-store", "data"),
+    Input("theme-store", "data"),
+)
+def update_max_btn_style(active, theme):
+    base = {"padding": "6px 14px", "cursor": "pointer", "borderRadius": "6px"}
+    if active:
+        return {**base, "backgroundColor": "#a855f7", "color": "#ffffff",
+                "border": "1px solid #9333ea", "fontWeight": "600"}
+    if theme == "dark":
+        return {**base, "backgroundColor": "#2d3561", "color": "#e0e0e0",
+                "border": "1px solid #4a5568"}
+    return {**base, "backgroundColor": "#e9ecef", "color": "#212529",
+            "border": "1px solid #adb5bd"}
+
+
+@app.callback(
     Output("clean-btn", "style"),
     Input("xrange-store", "data"),
     Input("theme-store", "data"),
@@ -448,7 +566,8 @@ def update_container_style(theme):
 
 @app.callback(
     [Output("halflife-input", "style"), Output("delta-hl-input", "style"),
-     Output("ka-input", "style")] + [Output(f"dose-{i}", "style") for i in range(7)],
+     Output("ka-input", "style"), Output("reg-interval-input", "style")]
+    + [Output(f"dose-{i}", "style") for i in range(7)],
     Input("theme-store", "data"),
 )
 def update_input_styles(theme):
@@ -459,7 +578,25 @@ def update_input_styles(theme):
         "backgroundColor": colors["paper"],
         "color": colors["text"],
     }
-    return [hl_style, hl_style, hl_style] + [hl_style] * 7
+    return [hl_style] * 4 + [hl_style] * 7
+
+
+def _compute_cutoff(half_life, ka, dose_values):
+    hl = half_life or DEFAULT_HALF_LIFE
+    ka_val = parse_dose(ka) or DEFAULT_KA
+    ke = np.log(2) / hl
+    dose_times_abs = [0.0]
+    last_t = 0.0
+    for dv in dose_values:
+        parsed = parse_dose(dv)
+        if parsed is not None:
+            last_t += parsed
+            dose_times_abs.append(last_t)
+    t_search = max(dose_times_abs) + 10 * hl
+    t, conc = compute_concentration(dose_times_abs, ka_val, ke, t_search)
+    peak_idx = int(np.argmax(conc))
+    below = np.where(conc[peak_idx:] <= 0.1)[0]
+    return float(t[peak_idx + below[0]]) if len(below) > 0 else float(t_search)
 
 
 @app.callback(
@@ -474,31 +611,18 @@ def update_input_styles(theme):
 def update_xrange(n_clicks, half_life, ka, *args):
     dose_values = args[:7]
     current_xrange = args[7]
+    triggered = ctx.triggered_id
 
-    if ctx.triggered_id != "clean-btn":
-        return None
+    if triggered == "clean-btn":
+        if current_xrange is not None:
+            return None
+        return _compute_cutoff(half_life, ka, dose_values)
 
-    # Toggle: second press resets
+    # param change while clean active → recompute
     if current_xrange is not None:
-        return None
+        return _compute_cutoff(half_life, ka, dose_values)
 
-    half_life = (half_life or DEFAULT_HALF_LIFE)
-    ka = parse_dose(ka) or DEFAULT_KA
-    ke = np.log(2) / half_life
-    dose_times_abs = [0.0]
-    last_t = 0.0
-    for dv in dose_values:
-        parsed = parse_dose(dv)
-        if parsed is not None:
-            last_t += parsed
-            dose_times_abs.append(last_t)
-    t_search = max(dose_times_abs) + 10 * half_life
-    t, conc = compute_concentration(dose_times_abs, ka, ke, t_search)
-    peak_idx = int(np.argmax(conc))
-    below = np.where(conc[peak_idx:] <= 0.1)[0]
-    if len(below) > 0:
-        return float(t[peak_idx + below[0]])
-    return float(t_search)
+    return no_update
 
 
 @app.callback(
@@ -508,9 +632,10 @@ def update_xrange(n_clicks, half_life, ka, *args):
     Input("ka-input", "value"),
     Input("theme-store", "data"),
     Input("xrange-store", "data"),
+    Input("show-max-store", "data"),
     *[Input(f"dose-{i}", "value") for i in range(7)],
 )
-def update_graph(half_life, delta_hl, ka, theme, xrange_override, *dose_values):
+def update_graph(half_life, delta_hl, ka, theme, xrange_override, show_max, *dose_values):
     if not half_life or half_life <= 0:
         half_life = DEFAULT_HALF_LIFE
     ka = parse_dose(ka) or DEFAULT_KA
@@ -526,7 +651,7 @@ def update_graph(half_life, delta_hl, ka, theme, xrange_override, *dose_values):
     delta_parsed = parse_dose(delta_hl)
     delta = delta_parsed if delta_parsed and delta_parsed > 0 else 0
     return build_figure(dose_times_abs, half_life, ka, theme,
-                        xrange_override=xrange_override, delta_hl=delta)
+                        xrange_override=xrange_override, delta_hl=delta, show_max=show_max)
 
 
 @app.callback(
@@ -559,6 +684,129 @@ def update_doses(reset_clicks, minus_clicks, plus_clicks, *current_values):
         values[idx] = str(int(new_val)) if new_val == int(new_val) else str(new_val)
         return values
     return [no_update] * 7
+
+
+# --- Panel 2 callbacks ---
+
+@app.callback(
+    Output("reg-interval-slider", "max"),
+    Output("reg-interval-slider", "marks"),
+    Input("halflife-input", "value"),
+    Input("theme-store", "data"),
+)
+def update_reg_interval_props(half_life, theme):
+    hl = half_life if half_life and half_life > 0 else DEFAULT_HALF_LIFE
+    new_max = 2 * hl
+    color = DARK_THEME["text"] if theme == "dark" else LIGHT_THEME["text"]
+
+    def fmt(v):
+        return f"{v:.0f}h" if v == int(v) else f"{v:.1f}h"
+
+    marks = {
+        0: {"label": "0", "style": {"color": color}},
+        hl: {"label": fmt(hl), "style": {"color": color}},
+        new_max: {"label": fmt(new_max), "style": {"color": color}},
+    }
+    return new_max, marks
+
+
+@app.callback(
+    Output("reg-doses-slider", "marks"),
+    Input("theme-store", "data"),
+)
+def update_reg_doses_marks(theme):
+    color = DARK_THEME["text"] if theme == "dark" else LIGHT_THEME["text"]
+    return {v: {"label": str(v), "style": {"color": color}} for v in [1, 2, 3, 5, 7, 10]}
+
+
+@app.callback(
+    Output("reg-doses-slider", "value"),
+    Output("reg-interval-slider", "value"),
+    Output("reg-interval-input", "value"),
+    Input("reset-btn", "n_clicks"),
+    prevent_initial_call=True,
+)
+def reset_reg_params(_):
+    return DEFAULT_REG_DOSES, DEFAULT_HALF_LIFE, str(DEFAULT_HALF_LIFE)
+
+
+def _compute_reg_cutoff(half_life, ka, n_doses, interval_str):
+    hl = half_life if half_life and half_life > 0 else DEFAULT_HALF_LIFE
+    ka_val = parse_dose(ka) or DEFAULT_KA
+    ke = np.log(2) / hl
+    n = int(n_doses or DEFAULT_REG_DOSES)
+    iv = parse_dose(interval_str)
+    if iv is None:
+        iv = hl
+    iv = min(iv, 2 * hl)
+    dose_times_abs = [0.0] * n if iv == 0 else [i * iv for i in range(n)]
+    t_search = max(dose_times_abs) + 10 * hl
+    t, conc = compute_concentration(dose_times_abs, ka_val, ke, t_search)
+    peak_idx = int(np.argmax(conc))
+    below = np.where(conc[peak_idx:] <= 0.1)[0]
+    return float(t[peak_idx + below[0]]) if len(below) > 0 else float(t_search)
+
+
+@app.callback(
+    Output("xrange-store-reg", "data"),
+    Input("clean-btn", "n_clicks"),
+    Input("halflife-input", "value"),
+    Input("ka-input", "value"),
+    Input("reg-doses-slider", "value"),
+    Input("reg-interval-input", "value"),
+    State("xrange-store-reg", "data"),
+    prevent_initial_call=True,
+)
+def update_reg_xrange(n_clicks, half_life, ka, n_doses, interval_str, current_xrange):
+    triggered = ctx.triggered_id
+
+    if triggered == "clean-btn":
+        if current_xrange is not None:
+            return None
+        return _compute_reg_cutoff(half_life, ka, n_doses, interval_str)
+
+    # halflife/ka change → deactivate clean
+    if triggered in ("halflife-input", "ka-input"):
+        return None
+
+    # reg-specific params change while clean active → recompute cutoff
+    if triggered in ("reg-doses-slider", "reg-interval-input"):
+        if current_xrange is None:
+            return no_update
+        return _compute_reg_cutoff(half_life, ka, n_doses, interval_str)
+
+    return no_update
+
+
+@app.callback(
+    Output("pk-graph-reg", "figure"),
+    Input("halflife-input", "value"),
+    Input("delta-hl-input", "value"),
+    Input("ka-input", "value"),
+    Input("theme-store", "data"),
+    Input("xrange-store-reg", "data"),
+    Input("show-max-store", "data"),
+    Input("reg-doses-slider", "value"),
+    Input("reg-interval-input", "value"),
+)
+def update_reg_graph(half_life, delta_hl, ka, theme, xrange_override, show_max, n_doses, interval_str):
+    hl = half_life if half_life and half_life > 0 else DEFAULT_HALF_LIFE
+    ka = parse_dose(ka) or DEFAULT_KA
+    n = int(n_doses or DEFAULT_REG_DOSES)
+    iv = parse_dose(interval_str)
+    if iv is None:
+        iv = hl
+    iv = min(iv, 2 * hl)
+
+    if iv == 0:
+        dose_times_abs = [0.0] * n
+    else:
+        dose_times_abs = [i * iv for i in range(n)]
+
+    delta_parsed = parse_dose(delta_hl)
+    delta = delta_parsed if delta_parsed and delta_parsed > 0 else 0
+    return build_figure(dose_times_abs, hl, ka, theme,
+                        xrange_override=xrange_override, delta_hl=delta, show_max=show_max)
 
 
 if __name__ == "__main__":
