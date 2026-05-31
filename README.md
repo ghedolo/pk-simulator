@@ -81,7 +81,9 @@ GPL-3.0. See [LICENSE](LICENSE).
 
 ## Author
 
-Luca Ghedini — luca.ghedini@gmail.com
+ghedo (luca.ghedini@gmail.com) — 2026
+
+Built with [Claude Code](https://claude.ai/code) by Anthropic.
 
 ## Development Effort
 
@@ -89,40 +91,39 @@ Built entirely through a conversation with **Claude Code** (claude-sonnet-4-6). 
 
 - **First message:** 2026-05-30
 - **Last message:** 2026-05-31
-- **Calendar span:** 2 days, 3 sessions
-- Sessions 1–2: 844 messages (341 user + 503 assistant), ~220 min active
-- Session 3: metrics pending extraction from transcript
+- **Calendar span:** 2 days, 3 sessions, 1,058 messages (427 user + 631 assistant)
+- **Active conversation time: ~293 minutes (~4.9 hours)**
 
 *How active time is computed:* timestamps are sorted across all sessions; consecutive gaps ≤ 5 minutes are summed. Longer gaps (idle, browser testing) are discarded.
 
 ### Tokens
 
-Cumulative token counts across sessions 1–2 (session 3 pending):
+Cumulative token counts across all 3 sessions:
 
-| Metric | Tokens |
-|---|---:|
-| Input (non-cache) | 875 |
-| Output | 394,366 |
-| Cache write | 436,110 |
-| Cache read | 40,369,268 |
-| **Total (s1–s2)** | **~41.2 M** |
+| Metric | S1+S2 | S3 | Total |
+|---|---:|---:|---:|
+| Input (non-cache) | 875 | 259 | 1,134 |
+| Output | 394,366 | 217,430 | 611,796 |
+| Cache write | 436,110 | 200,734 | 636,844 |
+| Cache read | 40,369,268 | 10,764,650 | 51,133,918 |
+| **Total** | **~41.2 M** | **~11.2 M** | **~52.4 M** |
 
 ### Cost
 
 | Item | Tokens | Rate | Cost |
 |---|---:|---:|---:|
-| Input (non-cache) | 875 | $3.00 / 1M | $0.00 |
-| Output | 394,366 | $15.00 / 1M | $5.92 |
-| Cache write | 436,110 | $3.75 / 1M | $1.63 |
-| Cache read | 40,369,268 | $0.30 / 1M | $12.11 |
-| **Total (s1–s2)** | | | **~$19.66** |
+| Input (non-cache) | 1,134 | $3.00 / 1M | $0.00 |
+| Output | 611,796 | $15.00 / 1M | $9.18 |
+| Cache write | 636,844 | $3.75 / 1M | $2.39 |
+| Cache read | 51,133,918 | $0.30 / 1M | $15.34 |
+| **Total** | | | **~$26.91** |
 
-Cache-read tokens dominate because every turn re-reads the full conversation context from the prompt cache (5-minute TTL). The model produced ~394 K output tokens; ~436 K tokens of new context were written to cache across the two sessions.
+Cache-read tokens dominate because every turn re-reads the full conversation context from the prompt cache (5-minute TTL). The model produced ~612 K output tokens; ~637 K tokens of new context were written to cache across all three sessions.
 
 ### Caveman mode
 
 All sessions ran entirely with [Caveman mode](https://github.com/anthropics/claude-code) (full level) active — a Claude Code skill that eliminates filler words, articles, and pleasantries from assistant responses while preserving all technical content.
 
-Average output tokens per assistant message: **737 tok/msg** (session 1) and **832 tok/msg** (session 2). Standard sessions on comparable projects without Caveman produce ~1,200–1,500 tok/msg. Estimated output reduction: **~40–45%** on prose responses (code-write tokens are unaffected and inflate the per-message average).
+Average output tokens per assistant message: **737 tok/msg** (session 1), **832 tok/msg** (session 2), **1,699 tok/msg** (session 3 — inflated by large code rewrites). Standard sessions on comparable projects without Caveman produce ~1,200–1,500 tok/msg on prose; session 3's higher average reflects the ratio of full-file writes vs. short text responses.
 
-Applying a conservative 40% reduction estimate to output tokens: without Caveman, output would have been ~**657,000 tokens** instead of 394,366 — a saving of ~263,000 output tokens (~$3.94 at $15/1M).
+Applying a conservative 40% reduction estimate to prose output tokens: without Caveman, total output would have been substantially higher — estimated saving of ~400K output tokens (~$6 at $15/1M) across all three sessions.
