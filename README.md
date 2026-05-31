@@ -88,20 +88,9 @@ Initial build: PK model, interactive UI, dark mode, Clean button, Δt½ overlay.
 
 ### Session 2 — 2026-05-31
 
-UI polish and persistence layer.
-
-**Added:**
-- Browser localStorage persistence for all parameters (half-life, Ka, doses) across restarts
-- Reset button to restore all parameters to defaults
-- Custom ±1 h dose buttons (replaced native browser spinners, which snapped unpredictably with `step="any"`)
-- "Show until clean" toggle button with active/inactive visual state
-- Slider thumb and track colored to match the curve (Dash 4.x uses `dash-slider-*` classes, not `rc-slider-*`)
-- Responsive graph (shrinks correctly when browser window narrows)
-- Half-life label and value input moved below slider
-- Dose rows redesigned: label left, input aligned with Ka/Δt½, ±buttons in absolute position outside input box
-- All numeric inputs converted to `type="text"` with `inputMode="decimal"` to eliminate native browser spinners
-- Graph margins tuned (equal left/right, tight top/bottom, x-axis title `standoff` reduced)
+UI polish and persistence layer: localStorage persistence, Reset button, custom ±1 h dose buttons, slider theming, responsive graph, layout refinements.
 
 | Metric | Value |
 |--------|-------|
 | Caveman mode | full |
+| Token data | not collected |
