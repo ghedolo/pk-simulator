@@ -288,8 +288,24 @@ app.layout = html.Div(
                                     style={"display": "flex", "justifyContent": "space-between",
                                            "alignItems": "center"},
                                     children=[
-                                        html.Label(f"Dose {i+2} (h)",
-                                                   style={"fontSize": "12px"}),
+                                        dcc.Input(
+                                            id={"type": "dose-note", "index": i},
+                                            type="text",
+                                            maxLength=8,
+                                            placeholder="Notes",
+                                            persistence=True,
+                                            persistence_type="local",
+                                            style={
+                                                "width": "70px",
+                                                "padding": "0px 3px",
+                                                "fontSize": "12px",
+                                                "height": "20px",
+                                                "borderRadius": "3px",
+                                                "border": "1px solid #aaa",
+                                                "textAlign": "left",
+                                                "boxSizing": "border-box",
+                                            },
+                                        ),
                                         html.Div(
                                             style={"position": "relative", "width": "62px",
                                                    "flexShrink": "0"},
@@ -320,9 +336,12 @@ app.layout = html.Div(
                                         ),
                                     ],
                                 )
-                                for i in range(7)
+                                for i in range(9)
                             ],
                         ),
+                        html.Div("hours from the previous dose",
+                                 style={"fontSize": "10px", "color": "#888",
+                                        "marginTop": "4px", "textAlign": "right"}),
                     ],
                 ),
 
@@ -567,7 +586,8 @@ def update_container_style(theme):
 @app.callback(
     [Output("halflife-input", "style"), Output("delta-hl-input", "style"),
      Output("ka-input", "style"), Output("reg-interval-input", "style")]
-    + [Output(f"dose-{i}", "style") for i in range(7)],
+    + [Output(f"dose-{i}", "style") for i in range(9)]
+    + [Output({"type": "dose-note", "index": i}, "style") for i in range(9)],
     Input("theme-store", "data"),
 )
 def update_input_styles(theme):
@@ -578,7 +598,19 @@ def update_input_styles(theme):
         "backgroundColor": colors["paper"],
         "color": colors["text"],
     }
-    return [hl_style] * 4 + [hl_style] * 7
+    note_style = {
+        "width": "70px",
+        "padding": "0px 3px",
+        "fontSize": "12px",
+        "height": "20px",
+        "borderRadius": "3px",
+        "border": f"1px solid {colors['grid']}",
+        "textAlign": "left",
+        "boxSizing": "border-box",
+        "backgroundColor": colors["paper"],
+        "color": colors["text"],
+    }
+    return [hl_style] * 4 + [hl_style] * 9 + [note_style] * 9
 
 
 def _compute_cutoff(half_life, ka, dose_values):
@@ -604,13 +636,13 @@ def _compute_cutoff(half_life, ka, dose_values):
     Input("clean-btn", "n_clicks"),
     Input("halflife-input", "value"),
     Input("ka-input", "value"),
-    *[Input(f"dose-{i}", "value") for i in range(7)],
+    *[Input(f"dose-{i}", "value") for i in range(9)],
     State("xrange-store", "data"),
     prevent_initial_call=True,
 )
 def update_xrange(n_clicks, half_life, ka, *args):
-    dose_values = args[:7]
-    current_xrange = args[7]
+    dose_values = args[:9]
+    current_xrange = args[9]
     triggered = ctx.triggered_id
 
     if triggered == "clean-btn":
@@ -633,7 +665,7 @@ def update_xrange(n_clicks, half_life, ka, *args):
     Input("theme-store", "data"),
     Input("xrange-store", "data"),
     Input("show-max-store", "data"),
-    *[Input(f"dose-{i}", "value") for i in range(7)],
+    *[Input(f"dose-{i}", "value") for i in range(9)],
 )
 def update_graph(half_life, delta_hl, ka, theme, xrange_override, show_max, *dose_values):
     if not half_life or half_life <= 0:
@@ -665,17 +697,17 @@ def reset_params(_):
 
 
 @app.callback(
-    [Output(f"dose-{i}", "value") for i in range(7)],
+    [Output(f"dose-{i}", "value") for i in range(9)],
     Input("reset-btn", "n_clicks"),
     Input({"type": "dose-minus", "index": ALL}, "n_clicks"),
     Input({"type": "dose-plus", "index": ALL}, "n_clicks"),
-    [State(f"dose-{i}", "value") for i in range(7)],
+    [State(f"dose-{i}", "value") for i in range(9)],
     prevent_initial_call=True,
 )
 def update_doses(reset_clicks, minus_clicks, plus_clicks, *current_values):
     triggered_id = ctx.triggered_id
     if triggered_id == "reset-btn":
-        return [None] * 7
+        return [None] * 9
     if isinstance(triggered_id, dict):
         idx = triggered_id["index"]
         values = list(current_values)
@@ -683,7 +715,7 @@ def update_doses(reset_clicks, minus_clicks, plus_clicks, *current_values):
         new_val = cur + 1 if triggered_id["type"] == "dose-plus" else max(0, cur - 1)
         values[idx] = str(int(new_val)) if new_val == int(new_val) else str(new_val)
         return values
-    return [no_update] * 7
+    return [no_update] * 9
 
 
 # --- Panel 2 callbacks ---

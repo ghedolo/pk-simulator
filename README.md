@@ -5,7 +5,7 @@ Single-compartment oral pharmacokinetic simulator with real-time interactive vis
 ## Features
 
 ### Panel 1 — arbitrary dosing
-- Up to 8 doses (first at t=0, then 7 slots with interval in hours from the previous dose)
+- Up to 10 doses (first at t=0, then 9 slots with interval in hours from the previous dose; each slot has a free-text note field for labels)
 - Half-life slider (0.5–48 h) with direct numeric input
 - Absorption constant Ka (0.1–10 /h)
 - Optional secondary curve with modified half-life (Δt½)
@@ -65,7 +65,7 @@ python pharma_sim.py
 
 1. Set **Half-Life** with the slider or by typing directly
 2. Set **Ka** (absorption rate constant)
-3. Enter dose intervals in the dose slots (hours from the previous dose); use the **+**/**−** buttons for ±1 h steps or type any value including 0.5 h increments
+3. Enter dose intervals in the dose slots (hours from the previous dose); use the **+**/**−** buttons for ±1 h steps or type any value including 0.5 h increments. Optionally type a short note (up to 8 chars) in the label field next to each slot
 4. Optionally set **Δt½** to overlay a second curve with a longer half-life
 5. Use the **N Doses** and **Interval** sliders (panel 2) to simulate a regular dosing regimen
 6. Use **Max** to overlay the peak concentration envelope on both graphs
@@ -90,9 +90,9 @@ Built with [Claude Code](https://claude.ai/code) by Anthropic.
 Built entirely through a conversation with **Claude Code** (claude-sonnet-4-6). Numbers extracted from local session transcripts (`~/.claude/projects/.../semiExp/*.jsonl`).
 
 - **First message:** 2026-05-30
-- **Last message:** 2026-05-31
-- **Calendar span:** 2 days, 3 sessions, 1,058 messages (427 user + 631 assistant)
-- **Active conversation time: ~293 minutes (~4.9 hours)**
+- **Last message:** 2026-06-02
+- **Calendar span:** 3 days, 4 sessions, ~1,168 messages (~472 user + ~696 assistant)
+- **Active conversation time: ~310 minutes (~5.2 hours)**
 
 *How active time is computed:* timestamps are sorted across all sessions; consecutive gaps ≤ 5 minutes are summed. Longer gaps (idle, browser testing) are discarded.
 
@@ -100,23 +100,23 @@ Built entirely through a conversation with **Claude Code** (claude-sonnet-4-6). 
 
 Cumulative token counts across all 3 sessions:
 
-| Metric | S1+S2 | S3 | Total |
-|---|---:|---:|---:|
-| Input (non-cache) | 875 | 259 | 1,134 |
-| Output | 394,366 | 217,430 | 611,796 |
-| Cache write | 436,110 | 200,734 | 636,844 |
-| Cache read | 40,369,268 | 10,764,650 | 51,133,918 |
-| **Total** | **~41.2 M** | **~11.2 M** | **~52.4 M** |
+| Metric | S1+S2 | S3 | S4 | Total |
+|---|---:|---:|---:|---:|
+| Input (non-cache) | 875 | 259 | ~90 | ~1,224 |
+| Output | 394,366 | 217,430 | ~18,500 | ~630,296 |
+| Cache write | 436,110 | 200,734 | ~66,000 | ~702,844 |
+| Cache read | 40,369,268 | 10,764,650 | ~1,800,000 | ~52,933,918 |
+| **Total** | **~41.2 M** | **~11.2 M** | **~1.9 M** | **~54.3 M** |
 
 ### Cost
 
 | Item | Tokens | Rate | Cost |
 |---|---:|---:|---:|
-| Input (non-cache) | 1,134 | $3.00 / 1M | $0.00 |
-| Output | 611,796 | $15.00 / 1M | $9.18 |
-| Cache write | 636,844 | $3.75 / 1M | $2.39 |
-| Cache read | 51,133,918 | $0.30 / 1M | $15.34 |
-| **Total** | | | **~$26.91** |
+| Input (non-cache) | ~1,224 | $3.00 / 1M | $0.00 |
+| Output | ~630,296 | $15.00 / 1M | $9.45 |
+| Cache write | ~702,844 | $3.75 / 1M | $2.64 |
+| Cache read | ~52,933,918 | $0.30 / 1M | $15.88 |
+| **Total** | | | **~$27.97** |
 
 Cache-read tokens dominate because every turn re-reads the full conversation context from the prompt cache (5-minute TTL). The model produced ~612 K output tokens; ~637 K tokens of new context were written to cache across all three sessions.
 
